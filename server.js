@@ -1,22 +1,4 @@
-import {Battle as BattleV13} from './_compat/v13/battle.js';
-import {chooseMove as chooseMoveV13} from './_compat/v13/bot.js';
-import {Battle as BattleV12} from './_compat/v12/battle.js';
-import {chooseMove as chooseMoveV12} from './_compat/v12/bot.js';
-import {chooseMove,cleanDifficulty} from './bot.js';
-import {chooseMove as legacyChooseMove} from './_compat/v5/bot.js';
-import {Battle as LegacyBattle} from './_compat/v5/battle.js';
-import {Battle as BattleV6} from './_compat/v6/battle.js';
-import {Battle as BattleV7} from './_compat/v7/battle.js';
-import {Battle as BattleV8} from './_compat/v8/battle.js';
-import {Battle as BattleV11} from './_compat/v11/battle.js';
-import {chooseMove as chooseMoveV11} from './_compat/v11/bot.js';
-import {Battle as BattleV10} from './_compat/v10/battle.js';
-import {chooseMove as chooseMoveV10} from './_compat/v10/bot.js';
-import {Battle as BattleV9} from './_compat/v9/battle.js';
-import {chooseMove as chooseMoveV9} from './_compat/v9/bot.js';
-import {chooseMove as chooseMoveV8} from './_compat/v8/bot.js';
-import {chooseMove as chooseMoveV7} from './_compat/v7/bot.js';
-import {chooseMove as chooseMoveV6} from './_compat/v6/bot.js';
+import { calculateBattleTurn } from './battle-turn.js';
 import http from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
@@ -25,7 +7,6 @@ import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { Chess } from 'chess.js';
 import { ArcadeGame, abilities } from './arcade.js';
-import { Battle, localMove } from './battle.js';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const port = Number(process.env.PORT || 4173);
@@ -142,22 +123,14 @@ const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   if (req.method === 'POST' && url.pathname === '/api/battle') {
     try {
-      const { actions, loadout, boss, difficulty, rulesVersion } = await readJson(req);
-      if(rulesVersion!==undefined&&![5,6,7,8,9,10,11,12,13,14].includes(rulesVersion))return send(res,409,{code:'RULES_VERSION',error:'Версия правил в этой вкладке не поддерживается сервером. Обнови страницу перед новой партией.'});
-      const version=rulesVersion??5,Engine=version===14?Battle:version===13?BattleV13:version===12?BattleV12:version===11?BattleV11:version===10?BattleV10:version===9?BattleV9:version===8?BattleV8:version===7?BattleV7:version===6?BattleV6:LegacyBattle,selectMove=version===14?chooseMove:version===13?chooseMoveV13:version===12?chooseMoveV12:version===11?chooseMoveV11:version===10?chooseMoveV10:version===9?chooseMoveV9:version===8?chooseMoveV8:version===7?chooseMoveV7:version===6?chooseMoveV6:legacyChooseMove;
-      if (!Array.isArray(actions) || actions.length > 1600) return send(res,400,{error:'Некорректная история.'});
-      const game = new Engine({ ...(loadout && typeof loadout === 'object' ? loadout : {}), boss: typeof boss === 'string' ? boss : null, difficulty: cleanDifficulty(difficulty) });
-      for (let i=0;i<actions.length;i++)try{game.apply(actions[i]);}catch{return send(res,409,{code:'HISTORY_MISMATCH',rulesVersion:version,error:`Правила вкладки и история партии несовместимы (действие ${i+1}). Повтор запроса не исправит это. Обнови страницу и начни новую партию; старое сохранение останется в браузере.`});}
-      if (game.isOver()) return send(res,400,{error:'Партия завершена.'});
-      // The bot plays from its own view: a hidden bishop is invisible to it as well.
-      const view = game.view(game.side);
-      const move = selectMove(version>=13?game:view,cleanDifficulty(difficulty),version>=13?{timeMs:2500}:undefined);
-      if(!move)throw new Error('Нет доступного хода.');
-      // Check the answer against the full replay before returning it to the browser.
-      game.apply(move);
-      // The full move (with its area) lets the client animate the ability before applying it.
-      return send(res,200,{action:move,rulesVersion:version,source:move.power?'Тактика способностей':'Бот арены'});
-    } catch(error) { return send(res,502,{error:error.message||'Не получилось получить ход.'}); }
+      return send(res, 200, calculateBattleTurn(await readJson(req)));
+    } catch (error) {
+      return send(res, error.status || 502, {
+        error: error.message || 'Не получилось получить ход.',
+        code: error.code,
+        rulesVersion: error.rulesVersion,
+      });
+    }
   }
 
   if (req.method === 'GET' && url.pathname === '/api/models') {
@@ -284,7 +257,8 @@ const server = http.createServer(async (req, res) => {
   }
 
   const requested = url.pathname === '/' ? '/index.html' : url.pathname;
-  if (!['/_compat/v13/battle.js','/_compat/v13/bot.js','/_compat/v13/giant-rules.js','/_compat/v13/encounter-rules.js','/_compat/v13/tuning.js','/index.html', '/app.js', '/style.css', '/arcade.js', '/battle.js', '/battle-v6.js', '/battle-v7.js', '/bot.js', '/sniper-fx.js', '/giant-rules.js', '/_compat/v8/battle.js', '/_compat/v8/giant-rules.js', '/_compat/v9/battle.js', '/_compat/v9/giant-rules.js', '/_compat/v10/battle.js', '/_compat/v10/giant-rules.js', '/_compat/v11/battle.js', '/_compat/v11/giant-rules.js', '/encounter-rules.js', '/tuning.js', '/_compat/v12/battle.js', '/_compat/v12/giant-rules.js', '/_compat/v12/encounter-rules.js'].includes(requested)
+  if (!['/index.html', '/app.js', '/style.css', '/arcade.js', '/battle.js', '/battle-v6.js', '/battle-v7.js', '/bot.js', '/sniper-fx.js', '/giant-rules.js', '/encounter-rules.js', '/tuning.js', '/battle-turn.js', '/battle-worker.js'].includes(requested)
+    && !/^\/_compat\/v(?:[5-9]|1[0-3])\/(?:battle|bot|encounter-rules|giant-rules|tuning)\.js$/.test(requested)
     && !/^\/pieces\/[wb][kqrbnp]\.svg$/.test(requested)
     && !/^\/assets\/(?:boss-(?:hunter|iron|warlock|horde|giant)|hunter-(?:wolf|bush))\.svg$/.test(requested)) {
     return send(res, 404, { error: 'Не найдено' });

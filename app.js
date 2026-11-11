@@ -1,7 +1,7 @@
 import {difficulties,cleanDifficulty} from './bot.js';
 import {sniperShot} from './sniper-fx.js';
-import {Battle as BattleV6} from './battle-v6.js';
-import {Battle as BattleV7} from './battle-v7.js';
+import {Battle as BattleV6} from './_compat/v6/battle.js';
+import {Battle as BattleV7} from './_compat/v7/battle.js';
 import {Battle as BattleV8} from './_compat/v8/battle.js';
 import {Battle as BattleV13,bosses as bossesV13} from './_compat/v13/battle.js';
 import {Battle as BattleV12,bosses as bossesV12} from './_compat/v12/battle.js';
@@ -43,8 +43,8 @@ const emblemSvg=id=>'<svg class="emblem" viewBox="0 0 100 100" aria-hidden="true
 function loadDraft(){try{const d=JSON.parse(localStorage.getItem(draftKey)||'null');if(d)return {deck:{...defaultLoadout(),...d.deck},boss:bosses[d.boss]?d.boss:null,difficulty:cleanDifficulty(d.difficulty)};}catch{}return {deck:defaultLoadout(),boss:null,difficulty:'normal'};}
 function saved(){try{localStorage.setItem(storageKey,JSON.stringify({rulesVersion,actions:game.actions,loadout:game.loadout,boss:game.boss,difficulty,model:'arena'}));}catch{}}
 function clear(){selected=null;mode=null;revive=null;aim=null;pending=null;effects.replaceChildren();}
-function image(type,color){const img=document.createElement('img');img.src='/pieces/'+color+type+'.svg';img.alt='';img.draggable=false;return img;}
-const bossAsset=key=>'/assets/boss-'+key+'.svg';
+function image(type,color){const img=document.createElement('img');img.src='./pieces/'+color+type+'.svg';img.alt='';img.draggable=false;return img;}
+const bossAsset=key=>'./assets/boss-'+key+'.svg';
 const hunterV8=()=>game.boss==='hunter'&&typeof game.hunterInfo==='function';
 function token(p){
  const hp=p.hp??maxOf(p),el=document.createElement('div');
@@ -55,7 +55,7 @@ function token(p){
  const pieceImage=image(p.type,p.color);
  if(p.color==='b'&&p.type==='k'&&bosses[game.boss]){pieceImage.src=bossAsset(game.boss);el.classList.add('boss-token');}
  if(p.seal)el.classList.add('seal-token');
- if(p.variant==='wolf'){pieceImage.src='/assets/hunter-wolf.svg';el.classList.add('wolf-token');}
+ if(p.variant==='wolf'){pieceImage.src='./assets/hunter-wolf.svg';el.classList.add('wolf-token');}
  el.append(base,pieceImage,atk,life);return el;
 }
 const themes=[['lacquer','Шкатулка'],['tavern','Таверна']];
@@ -99,7 +99,7 @@ function buildCards(){
  const boss=game.boss&&(rulesVersion<12?legacyBosses[game.boss]:rulesVersion===12?bossesV12[game.boss]:rulesVersion===13?bossesV13[game.boss]:bosses[game.boss]);
  document.documentElement.dataset.boss=game.boss||'';
  const portrait=$('opponentPanel').querySelector('.portrait');portrait.classList.toggle('boss-portrait',Boolean(boss));
- const portraitImage=portrait.querySelector('img');portraitImage.classList.toggle('chess-icon',Boolean(boss));portraitImage.onerror=()=>{portraitImage.onerror=null;portraitImage.src='/pieces/bk.svg';};portraitImage.src=boss?bossAsset(game.boss):'/pieces/bk.svg';
+ const portraitImage=portrait.querySelector('img');portraitImage.classList.toggle('chess-icon',Boolean(boss));portraitImage.onerror=()=>{portraitImage.onerror=null;portraitImage.src='./pieces/bk.svg';};portraitImage.src=boss?bossAsset(game.boss):'./pieces/bk.svg';
  $('botName').textContent=(boss?boss.name:'Соперник')+' · '+difficulties[difficulty];
  $('botName').title=$('botName').textContent;
  $('foeLoadout').textContent=(boss?boss.text+' ':'')+foe;$('opponentPanel').title='Способности соперника - '+foe;
@@ -171,7 +171,7 @@ function renderGiant(info){
  if(info.hp>0){
   const body=document.createElement('div');body.id='giantBody';body.className='giant-body'+(info.weak?' weak':'');
   body.style.left=files.indexOf(info.anchor[0])*12.5+'%';body.style.top=(7-Number(info.anchor[1]))*12.5+'%';
-  const img=document.createElement('img');img.src='/assets/boss-giant.svg';img.alt='';img.draggable=false;
+  const img=document.createElement('img');img.src='./assets/boss-giant.svg';img.alt='';img.draggable=false;
   const life=document.createElement('div');life.className='giant-life';const fill=document.createElement('i');fill.style.width=Math.max(0,Math.min(100,info.hp/info.maxHp*100))+'%';const label=document.createElement('b');label.textContent=info.hp+' / '+info.maxHp;life.append(fill,label);body.append(img,life);layer.append(body);
  }
  notice.dataset.phase=info.weak?'cornered':info.plan?'aim':'search';
@@ -219,7 +219,7 @@ function render(){
   b.type='button';b.dataset.square=s;b.setAttribute('role','gridcell');b.setAttribute('aria-label',s+(p?', '+(p.variant==='wolf'?'Волк':names[p.type])+(p.color==='w'?' белые':' чёрные'):''));
   if(center.includes(s)){b.classList.add('center');const mark=document.createElement('i');mark.className='center-mark';b.append(mark);b.title='Центр: +2 энергии за ход, если здесь стоит твоя фигура';}
   if(!lit.has(s)&&!p){b.classList.add('fogged');b.setAttribute('aria-label',s+', туман: содержимое неизвестно');b.title='Туман: содержимое клетки неизвестно';const mist=document.createElement('i');mist.className='fog-cover';b.append(mist);}
-  if(hunter?.hides.includes(s)){b.classList.add('hunter-hide');const bush=document.createElement('img');bush.className='hide-bush';bush.src='/assets/hunter-bush.svg';bush.alt='';bush.draggable=false;b.append(bush);const hint='Лёжка охотника. Займи её или подведи фигуру вплотную (короля — на две клетки), чтобы закрыть укрытие. Огонь тоже закрывает лёжку.';b.title=(b.title?b.title+' · ':'')+hint;b.setAttribute('aria-label',b.getAttribute('aria-label')+', лёжка');}
+  if(hunter?.hides.includes(s)){b.classList.add('hunter-hide');const bush=document.createElement('img');bush.className='hide-bush';bush.src='./assets/hunter-bush.svg';bush.alt='';bush.draggable=false;b.append(bush);const hint='Лёжка охотника. Займи её или подведи фигуру вплотную (короля — на две клетки), чтобы закрыть укрытие. Огонь тоже закрывает лёжку.';b.title=(b.title?b.title+' · ':'')+hint;b.setAttribute('aria-label',b.getAttribute('aria-label')+', лёжка');}
   if(hunter?.aim?.cells.includes(s))b.classList.add('hunter-aim-line');
   if(hunter?.extraAim?.cells.includes(s))b.classList.add('hunter-aim-line','hunter-rage-line');
   if(hunter?.extraAim?.target===s){b.classList.add('hunter-aim-target','hunter-rage-target');const mark=document.createElement('span');mark.className='hunter-mark';mark.textContent='⌖3';b.append(mark);const hint='Стрела ярости: 3 урона первой фигуре на фиолетовой линии после твоего хода.';b.title=(b.title?b.title+' · ':'')+hint;b.setAttribute('aria-label',b.getAttribute('aria-label')+', '+hint);}
@@ -567,19 +567,47 @@ async function play(action,human){
  finally{busy=false;render();}
  if(human&&game.side==='b'&&!game.isOver())void botTurn();
 }
+let battleWorker;
+function requestBotTurn(state) {
+  return new Promise((resolve, reject) => {
+    const worker = battleWorker ??= new Worker(new URL('./battle-worker.js', import.meta.url), { type: 'module' });
+
+    function finish(error, reply, restart = false) {
+      clearTimeout(timeout);
+      worker.onmessage = worker.onerror = worker.onmessageerror = null;
+      if (restart) {
+        worker.terminate();
+        battleWorker = undefined;
+      }
+      if (error) reject(error);
+      else resolve(reply);
+    }
+
+    const timeout = setTimeout(() => finish(new Error('Соперник долго думает.'), null, true), 10000);
+    worker.onmessage = ({ data }) => finish(
+      data.error ? Object.assign(new Error(data.error), { code: data.code }) : null,
+      data,
+    );
+    worker.onerror = worker.onmessageerror = () => finish(new Error('Не удалось запустить бота.'), null, true);
+    try {
+      worker.postMessage(state);
+    } catch (error) {
+      finish(error, null, true);
+    }
+  });
+}
+
 async function botTurn(){
  if(busy||game.side!=='b'||game.isOver())return;
  busy=true;botRetryBlocked=false;clear();error();render();let failed=false,applying=false;
- const timeout=AbortSignal.timeout(10000);
  try{
-  const response=await fetch('/api/battle',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({rulesVersion,actions:game.actions,loadout:game.loadout,boss:game.boss,difficulty}),signal:timeout});
-  const data=await response.json();if(!response.ok)throw Object.assign(new Error(data.error||'Соперник не ответил.'),{code:data.code});
-  if(data.rulesVersion!==rulesVersion)throw Object.assign(new Error('Сервер и вкладка используют разные правила. Обнови страницу перед новой партией.'),{code:'RULES_VERSION'});
+  const data=await requestBotTurn({rulesVersion,actions:game.actions,loadout:game.loadout,boss:game.boss,difficulty});
+  if(data.rulesVersion!==rulesVersion)throw Object.assign(new Error('Бот и вкладка используют разные правила. Обнови страницу перед новой партией.'),{code:'RULES_VERSION'});
   const action=data.action,concealed=concealedMove(action);
   applying=true;
   await wait(250);
   await effect(action);const result=game.apply(action);log(result,concealed);saved();showAftermath(result);
- }catch(e){failed=true;botRetryBlocked=['RULES_VERSION','HISTORY_MISMATCH'].includes(e.code)||applying;error(botRetryBlocked?(applying?'Ответ сервера не подходит к этой партии. Обнови страницу; сохранение останется в браузере.':e.message):(e.name==='TimeoutError'?'Сервер долго отвечает.':e.message)+' Нажми «Повторить ход соперника».');}
+ }catch(e){failed=true;botRetryBlocked=['RULES_VERSION','HISTORY_MISMATCH'].includes(e.code)||applying;error(botRetryBlocked?(applying?'Ход соперника не подходит к этой партии. Обнови страницу; сохранение останется в браузере.':e.message):e.message+' Нажми «Повторить ход соперника».');}
  finally{busy=false;render();}
  // Free actions (stealth, order) leave the bot to finish its turn.
  if(!failed&&game.side==='b'&&!game.isOver())void botTurn();
@@ -598,7 +626,7 @@ function openDraft(){
    b.innerHTML='<span class="mode-art"></span><b></b><small></small>';b.querySelector('b').textContent=boss.name;b.querySelector('small').textContent=boss.text;
    b.dataset.boss=key||'';
    const art=b.querySelector('.mode-art');
-   if(key){const img=document.createElement('img');img.src=bossAsset(key);img.classList.add('chess-icon');img.alt='';img.loading='lazy';img.onerror=()=>{img.onerror=null;img.src='/pieces/bk.svg';};art.append(img);}
+   if(key){const img=document.createElement('img');img.src=bossAsset(key);img.classList.add('chess-icon');img.alt='';img.loading='lazy';img.onerror=()=>{img.onerror=null;img.src='./pieces/bk.svg';};art.append(img);}
    else{art.classList.add('classic');art.textContent='♜';}
    b.addEventListener('click',()=>{choice.boss=key;paint();});$('draftModes').append(b);
   }

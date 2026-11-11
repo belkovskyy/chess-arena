@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ru" data-theme="lacquer"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#0b0605"><title>Шахматы · Арена</title>
 <script>try{const t=localStorage.getItem('arena-theme');if(t)document.documentElement.dataset.theme=t;}catch{}</script>
-<link rel="stylesheet" href="/style.css"></head><body>
+<link rel="stylesheet" href="./style.css"></head><body>
 <header class="top">
  <span class="brand"><span class="brand-star" aria-hidden="true"></span><span>Арена</span></span>
  <div class="toolbar">
@@ -31,7 +31,7 @@
     <div id="announcement" class="announcement" aria-hidden="true"></div>
     <section id="gameResult" class="result-overlay" aria-labelledby="resultTitle" hidden>
      <div class="result-panel">
-      <div class="result-sigil" aria-hidden="true"><img src="/pieces/wk.svg" alt=""><span>½</span></div>
+      <div class="result-sigil" aria-hidden="true"><img src="./pieces/wk.svg" alt=""><span>½</span></div>
       <h2 id="resultTitle" aria-live="polite"></h2><p id="resultText"></p>
       <div class="result-actions"><button id="resultNew" class="new">Новая партия</button><button id="resultInspect" class="quiet">Посмотреть поле</button></div>
      </div>
@@ -41,7 +41,7 @@
  </section>
  <aside class="side">
   <div id="opponentPanel" class="hero opponent">
-   <div class="portrait"><img src="/pieces/bk.svg" alt=""></div>
+   <div class="portrait"><img src="./pieces/bk.svg" alt=""></div>
    <div class="who"><strong id="botName">Соперник</strong><span><b id="botEnergy">20</b> энергии</span></div>
    <div id="botLife" class="king-hp" title="HP чёрного короля">12</div>
   </div>
@@ -54,7 +54,7 @@
    <div id="comment" class="turn-note" aria-live="polite" hidden></div>
   </section>
   <div class="hero human">
-   <div class="portrait"><img src="/pieces/wk.svg" alt=""></div>
+   <div class="portrait"><img src="./pieces/wk.svg" alt=""></div>
    <div class="who"><strong>Ты</strong><span>белые</span></div>
    <div id="humanLife" class="king-hp" title="HP твоего короля">12</div>
    <div class="energy-row">
@@ -81,4 +81,4 @@
 <dialog id="archive" class="archive-dialog"><button class="dialog-close quiet" id="archiveClose" aria-label="Закрыть архив">×</button><p class="eyebrow">Архив способностей</p><h2>Выведенные и идеи</h2><p>Здесь то, что пока не в игре: прежние способности и задумки на будущее. В бою недоступны.</p><div id="archiveList" class="archive-list"></div></dialog>
 <dialog id="promotion"><p class="eyebrow">Превращение</p><h2>Выбери фигуру</h2><div class="promotions"><button data-promotion="q">Ферзь</button><button data-promotion="r">Ладья</button><button data-promotion="b">Слон</button><button data-promotion="n">Конь</button></div></dialog>
 <dialog id="resurrection"><p class="eyebrow">Воскрешение</p><h2>Кого вернуть?</h2><div id="reviveChoices" class="promotions"></div><button id="reviveCancel" class="quiet">Отмена</button></dialog>
-<script type="module" src="/app.js"></script></body></html>
+<script type="module" src="./app.js"></script></body></html>

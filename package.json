@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "start": "node server.js",
-    "test": "node tests/retinue.mjs && node tests/ui-retinue.mjs"
+    "test": "node tests/retinue.mjs && node tests/ui-retinue.mjs && node tests/battle-worker.mjs"
   },
   "dependencies": {
     "chess.js": "1.4.0"
