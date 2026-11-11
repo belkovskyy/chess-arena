@@ -476,3 +476,11 @@ dialog p{font:14px/1.65 Georgia,serif;color:#d8c8a4}
 @media(prefers-reduced-motion:reduce){.support-dot,.formation-square .piece{animation:none}}
 
 [data-encounter-rules="14"] .retinue-rules-old{display:none}
+
+.room-panel{padding:10px 12px;border:1px solid var(--gold-d);border-radius:9px;background:#100a08;color:var(--ink)}
+.room-panel p{margin:0 0 8px;font-size:13px}
+.room-invite,.room-actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.room-invite:not([hidden]){margin-bottom:6px}
+.room-panel [hidden]{display:none}
+.room-invite input{flex:1 1 140px;min-width:0;padding:6px 8px;border:1px solid #b8913e66;border-radius:6px;background:#1c130e;color:inherit;font:inherit;font-size:12px}
+.room-actions button,.room-invite button{font-size:12px}

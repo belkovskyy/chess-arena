@@ -257,13 +257,15 @@ const server = http.createServer(async (req, res) => {
   }
 
   const requested = url.pathname === '/' ? '/index.html' : url.pathname;
-  if (!['/index.html', '/app.js', '/style.css', '/arcade.js', '/battle.js', '/battle-v6.js', '/battle-v7.js', '/bot.js', '/sniper-fx.js', '/giant-rules.js', '/encounter-rules.js', '/tuning.js', '/battle-turn.js', '/battle-worker.js'].includes(requested)
+  if (!['/index.html', '/app.js', '/style.css', '/arcade.js', '/battle.js', '/battle-v6.js', '/battle-v7.js', '/bot.js', '/sniper-fx.js', '/giant-rules.js', '/encounter-rules.js', '/tuning.js', '/battle-turn.js', '/battle-worker.js', '/room.js', '/vendor/peerjs.min.js'].includes(requested)
     && !/^\/_compat\/v(?:[5-9]|1[0-3])\/(?:battle|bot|encounter-rules|giant-rules|tuning)\.js$/.test(requested)
     && !/^\/pieces\/[wb][kqrbnp]\.svg$/.test(requested)
     && !/^\/assets\/(?:boss-(?:hunter|iron|warlock|horde|giant)|hunter-(?:wolf|bush))\.svg$/.test(requested)) {
     return send(res, 404, { error: 'Не найдено' });
   }
-  const filename = path.join(root, requested==='/battle-v6.js'?'_compat/v6/battle.js':requested==='/battle-v7.js'?'_compat/v7/battle.js':requested.slice(1));
+  const filename = requested === '/vendor/peerjs.min.js'
+    ? path.join(root, 'node_modules/peerjs/dist/peerjs.min.js')
+    : path.join(root, requested==='/battle-v6.js'?'_compat/v6/battle.js':requested==='/battle-v7.js'?'_compat/v7/battle.js':requested.slice(1));
   try {
     const info = await stat(filename);
     if (!info.isFile()) return send(res, 404, { error: 'Не найдено' });

@@ -1,3 +1,4 @@
+import { openRoom, roomFromHash } from './room.js';
 import {difficulties,cleanDifficulty} from './bot.js';
 import {sniperShot} from './sniper-fx.js';
 import {Battle as BattleV6} from './_compat/v6/battle.js';
@@ -14,6 +15,7 @@ const currentRules=14;
 let game=new Battle(),rulesVersion=currentRules,storageKey='arena-game-v'+currentRules;
 const draftKey='arena-draft-v2';
 let difficulty='normal';
+let room=null,solo=null,playerColor='w',opponentColor='b';
 let botRetryBlocked=false;
 let resultDismissed=false;
 let busy=false,selected=null,mode=null,revive=null,aim=null,pending=null,events=[],last=null,draft=loadDraft();
@@ -41,14 +43,14 @@ const goldDefs='<defs><linearGradient id="gold" x1="0" y1="0" x2="1" y2="1"><sto
 emblems.stealth=`<path d="M6 50 Q50 8 94 50 Q50 92 6 50" ${G}/><circle cx="50" cy="50" r="15" ${G}/><path d="M16 86 L84 14" ${G}/>`;
 const emblemSvg=id=>'<svg class="emblem" viewBox="0 0 100 100" aria-hidden="true">'+goldDefs+(emblems[id]||'')+'</svg>';
 function loadDraft(){try{const d=JSON.parse(localStorage.getItem(draftKey)||'null');if(d)return {deck:{...defaultLoadout(),...d.deck},boss:bosses[d.boss]?d.boss:null,difficulty:cleanDifficulty(d.difficulty)};}catch{}return {deck:defaultLoadout(),boss:null,difficulty:'normal'};}
-function saved(){try{localStorage.setItem(storageKey,JSON.stringify({rulesVersion,actions:game.actions,loadout:game.loadout,boss:game.boss,difficulty,model:'arena'}));}catch{}}
+function saved(){if(room)return;try{localStorage.setItem(storageKey,JSON.stringify({rulesVersion,actions:game.actions,loadout:game.loadout,boss:game.boss,difficulty,model:'arena'}));}catch{}}
 function clear(){selected=null;mode=null;revive=null;aim=null;pending=null;effects.replaceChildren();}
 function image(type,color){const img=document.createElement('img');img.src='./pieces/'+color+type+'.svg';img.alt='';img.draggable=false;return img;}
 const bossAsset=key=>'./assets/boss-'+key+'.svg';
 const hunterV8=()=>game.boss==='hunter'&&typeof game.hunterInfo==='function';
 function token(p){
  const hp=p.hp??maxOf(p),el=document.createElement('div');
- el.className='piece '+(p.color==='w'?'ally':'enemy')+(hp<maxOf(p)?' wounded':'');
+ el.className='piece '+(p.color===playerColor?'ally':'enemy')+(hp<maxOf(p)?' wounded':'');
  const base=document.createElement('i');base.className='base';
  const atk=document.createElement('span');atk.className='atk';atk.textContent=attackOf(p);
  const life=document.createElement('span');life.className='hpv';life.textContent=hp;
@@ -60,7 +62,7 @@ function token(p){
 }
 const themes=[['lacquer','Шкатулка'],['tavern','Таверна']];
 function applyTheme(name){const theme=themes.find(t=>t[0]===name)||themes[0];document.documentElement.dataset.theme=theme[0];$('themeToggle').textContent='Тема: '+theme[1];try{localStorage.setItem('arena-theme',theme[0]);}catch{}}
-const idOf=type=>game.abilityOf(type,'w').id;
+const idOf=type=>game.abilityOf(type,playerColor).id;
 const needsChoice=type=>idOf(type)==='revive';
 function kingHp(color){return Object.values(game.board).find(p=>p.color===color&&p.type==='k')?.hp||0;}
 function targets(){
@@ -71,8 +73,8 @@ function targets(){
 function targetSquares(){return [...new Set(targets().map(m=>m.to))];}
 // What a plain attack would do to each visible enemy in reach: the blow, a counter-strike, or a mirror.
 function attackPreview(){
- const out=new Map();if(!selected||mode||game.side!=='w')return out;
- const view=game.view('w'),attacker=view.get(selected);if(!attacker)return out;
+ const out=new Map();if(!selected||mode||game.side!==playerColor)return out;
+ const view=game.view(playerColor),attacker=view.get(selected);if(!attacker)return out;
  for(const m of game.legal(selected)){
   const impact=view.impact(m);if(!impact.struck)continue;
   const blow=impact.damage.find(d=>!d.counter&&!d.reflected),back=impact.damage.find(d=>d.counter||d.reflected),victim=view.get(impact.struck);
@@ -84,34 +86,37 @@ function error(text=''){$('error').textContent=text;$('error').hidden=!text;}
 function buildCards(){
  $('cards').replaceChildren();
  for(const type of types){
-  const index=game.loadout.w[type],def=ability(type,index),btn=document.createElement('button');btn.className='card'+(index?' alt':'');btn.type='button';btn.title=def.text;btn.dataset.type=type;
+  const index=game.loadout[playerColor][type],def=ability(type,index),btn=document.createElement('button');btn.className='card'+(index?' alt':'');btn.type='button';btn.title=def.text;btn.dataset.type=type;
   btn.style.setProperty('--accent',accents[type]);
   const cost=document.createElement('span');cost.className='cost';cost.textContent=def.id==='revive'?def.cost+'+':def.cost;
   const art=document.createElement('span');art.className='art';art.innerHTML=emblemSvg(def.id);
   const cd=document.createElement('span');cd.className='cd';
-  art.append(image(type,'w'),cd);
+  art.append(image(type,playerColor),cd);
   const title=document.createElement('strong');title.textContent=def.name;
   const label=document.createElement('span');label.className='card-label';label.textContent=def.label;
   const available=document.createElement('span');available.className='availability';
   btn.append(cost,art,title,label,available);btn.addEventListener('click',()=>chooseCard(type));$('cards').append(btn);cardButtons[type]=btn;
  }
- const foe=types.map(t=>names[t]+': '+ability(t,game.loadout.b[t]).name).join(' · ');
+ const foe=types.map(t=>names[t]+': '+ability(t,game.loadout[opponentColor][t]).name).join(' · ');
  const boss=game.boss&&(rulesVersion<12?legacyBosses[game.boss]:rulesVersion===12?bossesV12[game.boss]:rulesVersion===13?bossesV13[game.boss]:bosses[game.boss]);
  document.documentElement.dataset.boss=game.boss||'';
  const portrait=$('opponentPanel').querySelector('.portrait');portrait.classList.toggle('boss-portrait',Boolean(boss));
- const portraitImage=portrait.querySelector('img');portraitImage.classList.toggle('chess-icon',Boolean(boss));portraitImage.onerror=()=>{portraitImage.onerror=null;portraitImage.src='./pieces/bk.svg';};portraitImage.src=boss?bossAsset(game.boss):'./pieces/bk.svg';
- $('botName').textContent=(boss?boss.name:'Соперник')+' · '+difficulties[difficulty];
+ const portraitImage=portrait.querySelector('img');portraitImage.classList.toggle('chess-icon',Boolean(boss));portraitImage.onerror=()=>{portraitImage.onerror=null;portraitImage.src='./pieces/'+opponentColor+'k.svg';};portraitImage.src=boss?bossAsset(game.boss):'./pieces/'+opponentColor+'k.svg';
+ $('botName').textContent=room?'Друг · '+(opponentColor==='w'?'белые':'чёрные'):(boss?boss.name:'Соперник')+' · '+difficulties[difficulty];
+ $('playerSide').textContent=playerColor==='w'?'белые':'чёрные';
+ document.querySelector('.human .portrait img').src='./pieces/'+playerColor+'k.svg';
  $('botName').title=$('botName').textContent;
  $('foeLoadout').textContent=(boss?boss.text+' ':'')+foe;$('opponentPanel').title='Способности соперника - '+foe;
  if(game.boss==='giant'){$('foeLoadout').textContent='Великан: Топот — '+giantDamage(game.giantInfo(),'stomp')+' урона вокруг тела, Взмах — '+giantDamage(game.giantInfo(),'sweep')+' урона полосой. Шаг → замах → удар; после удара уязвим один твой ход. Общие '+game.giantInfo().maxHp+' HP.';if(game.giantInfo().version>=12)$('foeLoadout').textContent=boss.text+' '+boss.lore;$('opponentPanel').title=$('foeLoadout').textContent;}
  $('opponentPanel').classList.toggle('boss',Boolean(boss));
 }
 function renderResult(){
- const over=game.isOver(),outcome=game.draw?'draw':game.winner==='w'?'win':'loss';
+ const over=game.isOver(),outcome=game.draw?'draw':game.winner===playerColor?'win':'loss';
  if(!over)resultDismissed=false;
  const panel=$('gameResult');panel.hidden=!over||busy||resultDismissed;panel.dataset.outcome=outcome;
  $('resultTitle').textContent=outcome==='win'?'Победа':outcome==='loss'?'Поражение':'Ничья';
  $('resultText').textContent=outcome==='win'?(game.boss==='giant'?'Великан повержен.':'Король соперника повержен.'):outcome==='loss'?'Твой король повержен.':'Партия завершилась без победителя.';
+ $('resultNew').hidden=Boolean(room);
  $('resultReturn').hidden=!over||!resultDismissed;
  $('turn').classList.toggle('finished',over);$('turn').dataset.outcome=over?outcome:'';
 }
@@ -203,18 +208,18 @@ function syncBoardNotices(){
  if(!noticesObserver&&typeof ResizeObserver==='function'){noticesObserver=new ResizeObserver(()=>requestAnimationFrame(syncBoardNotices));notices.forEach(el=>noticesObserver.observe(el));}
 }
 function render(){
- if(game.pending?.kind==='stealth'&&game.side==='w'&&!busy){selected=game.pending.square;mode=null;}
+ if(game.pending?.kind==='stealth'&&game.side===playerColor&&!busy){selected=game.pending.square;mode=null;}
  const target=new Set(targetSquares()),hits=attackPreview(),burnSoon=burnLevel(game.ply+4)>burnLevel(game.ply);
  const hunter=hunterV8()?game.hunterInfo('w'):null;
  const giant=game.giantInfo?.()||null,support=game.supportInfo?.()||null;
  $('rulesVersionLabel').textContent=rulesVersion===currentRules?'Баланс 14':'Старая партия · '+rulesVersion;$('rulesVersionLabel').title=rulesVersion===currentRules?'Четыре ладьи и Строй; слоны-печати Колдуна':'Для обновлённых боссов начни новую партию. Эта партия сохраняет прежние правила.';document.documentElement.dataset.encounterRules=String(rulesVersion);document.documentElement.dataset.hunterRules=typeof game.hunterInfo==='function'?'8':'legacy';
- const fog=game.fogEnabled(),lit=fog?game.litSquares('w'):new Set(allSquares),plan=hunter?null:game.hunterPlan,bossPlan=game.bossPlan;
+ const fog=game.fogEnabled(),lit=fog?game.litSquares(playerColor):new Set(allSquares),plan=hunter?null:game.hunterPlan,bossPlan=game.bossPlan;
  const trace=!hunter&&game.hunterTrace?.expiresAt>game.ply?game.hunterTrace:null;
  board.classList.toggle('fog-board',fog);
  const sources=mode?new Set(game.legalSpecials().filter(m=>m.power===mode).map(m=>m.from)):new Set();
  board.replaceChildren();
- for(const s of allSquares){
-  const p=game.visible(s,'w'),b=document.createElement('button');
+ for(const s of (playerColor==='w'?allSquares:[...allSquares].reverse())){
+  const p=game.visible(s,playerColor),b=document.createElement('button');
   b.className='square'+((files.indexOf(s[0])+(+s[1]))%2===0?' dark':'');
   b.type='button';b.dataset.square=s;b.setAttribute('role','gridcell');b.setAttribute('aria-label',s+(p?', '+(p.variant==='wolf'?'Волк':names[p.type])+(p.color==='w'?' белые':' чёрные'):''));
   if(center.includes(s)){b.classList.add('center');const mark=document.createElement('i');mark.className='center-mark';b.append(mark);b.title='Центр: +2 энергии за ход, если здесь стоит твоя фигура';}
@@ -241,7 +246,7 @@ function render(){
   if(sources.has(s))b.classList.add('source');
   if(target.has(s))b.classList.add(mode?'target':s===selected?'stay-target':hits.has(s)?'attack-target':'normal-target');
   if(p){
-   b.classList.add('occupied',p.color==='w'?'own':'foe');if(p.giant){b.classList.add('giant-cell');b.setAttribute('aria-label',s+', часть великана, общие '+p.hp+' HP');b.title=(b.title?b.title+' · ':'')+'Часть тела великана. У всех четырёх клеток одно здоровье.';}else b.append(token(p));
+   b.classList.add('occupied',p.color===playerColor?'own':'foe');if(p.giant){b.classList.add('giant-cell');b.setAttribute('aria-label',s+', часть великана, общие '+p.hp+' HP');b.title=(b.title?b.title+' · ':'')+'Часть тела великана. У всех четырёх клеток одно здоровье.';}else b.append(token(p));
    if(p.variant==='wolf')b.title=(b.title?b.title+' · ':'')+'Волк охотника: ходит как конь, 2 атаки, 3 максимальных HP.';
    b.setAttribute('aria-label',b.getAttribute('aria-label')+', '+(p.hp??maxOf(p))+' HP, атака '+attackOf(p));
    const tags=[];if(p.type==='k'&&p.color==='b'&&hunter?.cover)tags.push(['cover','⛨','Укрытие: урон с расстояния 3+ клетки вдвое меньше, округление вверх. Вблизи полный.']);
@@ -256,7 +261,9 @@ function render(){
    const label=document.createElement('span');label.className='damage-preview'+(hit.lethal?' lethal':hit.mirror?' mirror':'');label.textContent=hit.mirror?'◇':hit.lethal?'☠':'−'+hit.amount;b.append(label);if(hit.reasons?.length){const reason=document.createElement('span');reason.className='damage-reason';reason.textContent=hit.reasons.join(' · ');b.append(reason);b.title=(b.title?b.title+' · ':'')+hit.reasons.join(' · ');}
    if(hit.back){const back=document.createElement('span');back.className='counter-preview'+(hit.backLethal?' lethal':'');back.title=hit.mirror?'Зеркало вернёт удар':'Ответный удар по твоей фигуре';back.textContent='↩'+(hit.backLethal?'☠':hit.back);b.append(back);}
   }
-  if(s[1]==='1'||s[0]==='a'){const c=document.createElement('span');c.className='coord'+(s[1]==='1'?' file':' rank');c.textContent=s[1]==='1'?s[0]:s[1];b.append(c);if(s==='a1'){const r=document.createElement('span');r.className='coord rank';r.textContent='1';b.append(r);}}
+  const bottom=playerColor==='w'?'1':'8',left=playerColor==='w'?'a':'h';
+  if(s[1]===bottom){const c=document.createElement('span');c.className='coord file';c.textContent=s[0];b.append(c);}
+  if(s[0]===left){const c=document.createElement('span');c.className='coord rank';c.textContent=s[1];b.append(c);}
   b.addEventListener('click',()=>click(s));
   b.addEventListener('pointerenter',()=>preview(s));
   b.addEventListener('focus',()=>preview(s));
@@ -264,12 +271,12 @@ function render(){
  }
  renderHunterIntel(hunter);
  renderGiant(giant);renderSupport(support);
- const energy=game.energy.w;
- $('energyValue').textContent=energy;$('botEnergy').textContent=game.energy.b;
+ const energy=game.energy[playerColor];
+ $('energyValue').textContent=energy;$('botEnergy').textContent=game.energy[opponentColor];
  $('energyBar').setAttribute('aria-valuenow',String(energy));$('energyBar').firstElementChild.style.width=(100*energy/MAX_ENERGY)+'%';
  $('energyBar').classList.toggle('full',energy>=MAX_ENERGY);
- const income=8+Math.min(4,center.filter(s=>game.get(s)?.color==='w').length*2);$('energyIncome').textContent='+'+income+' за ход';
- for(const [id,color] of [['humanLife','w'],['botLife','b']]){const square=allSquares.find(s=>game.get(s)?.color===color&&game.get(s)?.type==='k'),king=square&&game.visible(square,'w'),known=Boolean(king)||game.isOver(),hp=kingHp(color);$(id).textContent=known?hp:'?';$(id).title=known?'Здоровье короля':'Король скрыт туманом';$(id).classList.toggle('wounded',known&&hp<maxOf(king||{type:'k'}));}
+ const income=8+Math.min(4,center.filter(s=>game.get(s)?.color===playerColor).length*2);$('energyIncome').textContent='+'+income+' за ход';
+ for(const [id,color] of [['humanLife',playerColor],['botLife',opponentColor]]){const square=allSquares.find(s=>game.get(s)?.color===color&&game.get(s)?.type==='k'),king=square&&game.visible(square,playerColor),known=Boolean(king)||game.isOver(),hp=kingHp(color);$(id).textContent=known?hp:'?';$(id).title=known?'Здоровье короля':'Король скрыт туманом';$(id).classList.toggle('wounded',known&&hp<maxOf(king||{type:'k'}));}
  const move=Math.floor(game.ply/2)+1,burnIn=Math.ceil((BURN_START-game.ply)/2);
  $('turnCount').textContent=giant?'Ход '+move+' · огонь отключён':burnLevel(game.ply)?'Арена горит':burnIn<=6?'Ход '+move+' · огонь через '+burnIn:'Ход '+move;
  const fireLevel=burnLevel(game.ply),fireNext=fireLevel<3?Math.ceil(((fireLevel?BURN_START+fireLevel*BURN_STEP:BURN_START)-game.ply)/2):null;
@@ -277,57 +284,59 @@ function render(){
  $('burnNotice').hidden=Boolean(giant)||(!fireLevel&&burnIn>2);$('burnNotice').classList.toggle('soon',!fireLevel);
  $('burnHeadline').textContent=fireLevel?'Арена горит · −1 HP в начале своего хода':'Край арены загорится через '+rounds(burnIn);
  $('burnDetails').textContent=fireLevel?'Урон обеим сторонам · '+(fireNext?'до следующего кольца: '+rounds(fireNext)+'.':'последнее кольцо.'):'Уведи фигуры с края · −1 HP в начале своего хода у обеих сторон.';
- const mine=!busy&&game.side==='w'&&!game.isOver();
- const visibleThreat=!game.isOver()&&game.view('w').threatened('w');
+ const mine=myTurn();
+ const visibleThreat=!game.isOver()&&game.view(playerColor).threatened(playerColor);
  $('turn').className='turn '+(game.isOver()?'over':mine?(visibleThreat?'mine danger':'mine'):'theirs');
- $('status').textContent=game.winner?(game.winner==='w'?'Победа':'Поражение'):game.draw?'Ничья':busy&&game.side==='b'?'Соперник думает':busy?'Удар…':game.side==='b'?'Ход соперника':game.pending?.kind==='stealth'?'Слон невидим - ходи им':game.pending?.kind==='order'?'Приказ: лишний ход':visibleThreat?'Король под ударом':'Твой ход';
+ $('status').textContent=game.winner?(game.winner===playerColor?'Победа':'Поражение'):game.draw?'Ничья':room&&!room.ready?'Партия на паузе':room?.awaiting?'Отправляем ход…':busy&&!room&&game.side==='b'?'Соперник думает':busy?'Удар…':game.side!==playerColor?'Ход соперника':game.pending?.kind==='stealth'?'Слон невидим - ходи им':game.pending?.kind==='order'?'Приказ: лишний ход':visibleThreat?'Король под ударом':'Твой ход';
  $('bossInfo').hidden=Boolean(support)||Boolean(hunter)||game.isOver()||(!fog&&!['iron','warlock'].includes(game.boss));$('bossInfo').classList.toggle('warning',Boolean(plan||bossPlan));
  $('bossInfo').textContent=fog?(plan?'Засада на '+plan.target+' · отход '+plan.retreat+'. Уведи цель или перекрой отход.':'Туман скрывает поле только от тебя: видишь клетки в двух шагах от своих фигур. Охотник видит всё поле и предупреждает о выпаде за ход. Инвиз скрывает слона и от него.'):bossPlan?.kind==='iron'?'Обвал вокруг '+bossPlan.target+': 2 урона по отмеченным клеткам. Удар по королю обвал не остановит. Уведи фигуры из зоны.':bossPlan?.kind==='warlock'?'Ритуал на '+bossPlan.target+': 3 урона по отмеченному диагональному кресту. Нанеси любой урон Колдуну, чтобы сорвать ритуал, или уйди из зоны.':game.boss==='iron'?'Обвал бьёт по области 3×3 рядом с королём. Есть один ход на отход или защиту. Соседние союзники поглощают до 3 урона по королю.':'Колдун готовит ритуал по пяти клеткам: центр и четыре соседние диагонали. Урон Колдуну во время подготовки отменяет ритуал.';
  if(fog&&!plan&&trace)$('bossInfo').textContent='След на '+trace.square+': здесь охотник напал и ушёл. След останется на один твой ход и не показывает его нынешнюю позицию. Огонь виден сквозь туман, фигуры он не раскрывает.';
- $('opponentPanel').classList.toggle('active',game.side==='b'&&!game.isOver());
- $('newGame').disabled=busy;$('undo').disabled=busy||!game.actions.length;
- $('retry').hidden=busy||game.side!=='b'||game.isOver()||botRetryBlocked;
+ $('opponentPanel').classList.toggle('active',game.side===opponentColor&&!game.isOver());
+ $('newGame').disabled=busy||Boolean(room);
+ $('undo').disabled=busy||Boolean(room)||!game.actions.length;
+ $('retry').hidden=Boolean(room)||busy||game.side!=='b'||game.isOver()||botRetryBlocked;
  renderResult();
  $('cancel').hidden=!mode;
  for(const [type,btn] of Object.entries(cardButtons)){
-  const def=game.abilityOf(type,'w'),enough=energy>=def.cost,has=allSquares.some(s=>game.get(s)?.type===type&&game.get(s)?.color==='w'),cd=game.cooldown(type,'w');
-  const count=game.side==='w'?game.legalSpecials().filter(m=>m.power===type).length:0;
+  const def=game.abilityOf(type,playerColor),enough=energy>=def.cost,has=allSquares.some(s=>game.get(s)?.type===type&&game.get(s)?.color===playerColor),cd=game.cooldown(type,playerColor);
+  const count=game.side===playerColor?game.legalSpecials().filter(m=>m.power===type).length:0;
   btn.classList.toggle('active',mode===type);btn.classList.toggle('locked',!enough||!has||Boolean(cd)||Boolean(game.pending));
   btn.classList.toggle('ready',Boolean(count)&&!busy&&!game.isOver());btn.classList.toggle('cooling',Boolean(cd));
   btn.querySelector('.cd').textContent=cd||'';
-  if(def.id==='revive')btn.querySelector('.cost').textContent=game.cost({power:'k',revive:'p'},'w')+'+';
-  btn.setAttribute('aria-pressed',String(mode===type));btn.disabled=busy||game.side!=='w'||game.isOver();
+  if(def.id==='revive')btn.querySelector('.cost').textContent=game.cost({power:'k',revive:'p'},playerColor)+'+';
+  btn.setAttribute('aria-pressed',String(mode===type));btn.disabled=!mine;
   btn.querySelector('.availability').textContent=!has?'Фигура потеряна':cd?'Перезарядка':game.pending?'После хода':!enough?'Ещё '+(def.cost-energy):count?'Готово':'Нет цели';
  }
- const help=game.side==='w'&&game.pending?.kind==='stealth'?'Слон невидим. Сходи им - соперник не увидит куда - или нажми на него, чтобы остаться на месте.':game.side==='w'&&game.pending?.kind==='order'?'Приказ: сделай лишний ход любой фигурой, кроме ферзя. Потом будет обычный ход.':mode?(game.abilityOf(mode,'w').text+' '+(!selected?'Выбери фигуру на поле.':idOf(mode)==='revive'?'Выбери клетку для возвращения.':idOf(mode)==='gallop'?'Выбери первого врага - дальше конь поскачет сам.':idOf(mode)==='swap'?'Выбери свою фигуру для обмена.':'Выбери подсвеченную цель.')):'';
+ const help=game.side===playerColor&&game.pending?.kind==='stealth'?'Слон невидим. Сходи им - соперник не увидит куда - или нажми на него, чтобы остаться на месте.':game.side===playerColor&&game.pending?.kind==='order'?'Приказ: сделай лишний ход любой фигурой, кроме ферзя. Потом будет обычный ход.':mode?(game.abilityOf(mode,playerColor).text+' '+(!selected?'Выбери фигуру на поле.':idOf(mode)==='revive'?'Выбери клетку для возвращения.':idOf(mode)==='gallop'?'Выбери первого врага - дальше конь поскачет сам.':idOf(mode)==='swap'?'Выбери свою фигуру для обмена.':'Выбери подсвеченную цель.')):'';
  $('aimHelp').textContent=help;$('aimHelp').hidden=!help;
  $('history').replaceChildren();
  if(!events.length){const li=document.createElement('li');li.textContent='Ходов пока нет.';$('history').append(li);}
- for(const event of events.slice(-12).reverse()){const li=document.createElement('li'),a=document.createElement('span'),b=document.createElement('b');a.textContent=event.color==='w'?'Ты':'Соперник';b.textContent=event.label;li.append(a,b);$('history').append(li);}
+ for(const event of events.slice(-12).reverse()){const li=document.createElement('li'),a=document.createElement('span'),b=document.createElement('b');a.textContent=event.color===playerColor?'Ты':'Соперник';b.textContent=event.label;li.append(a,b);$('history').append(li);}
+ renderRoom();
  syncBoardNotices();
  preview();
 }
 function lines(points,preview=false){
  const ns='http://www.w3.org/2000/svg',svg=document.createElementNS(ns,'svg');svg.setAttribute('viewBox','0 0 8 8');
- const path=document.createElementNS(ns,'polyline');path.setAttribute('points',points.filter(Boolean).map(s=>(files.indexOf(s[0])+.5)+','+(8.5-+s[1])).join(' '));svg.append(path);effects.append(svg);effects.classList.toggle('preview',preview);return svg;
+ const path=document.createElementNS(ns,'polyline');path.setAttribute('points',points.filter(Boolean).map(s=>{const [x,y]=boardPoint(s);return (x+.5)+','+(y+.5);}).join(' '));svg.append(path);effects.append(svg);effects.classList.toggle('preview',preview);return svg;
 }
 function preview(s){
  if(busy)return;
  effects.replaceChildren();board.querySelectorAll('.zone,.friendly-risk,.threat').forEach(b=>b.classList.remove('zone','friendly-risk','threat'));board.querySelectorAll('.damage-preview.ability,.damage-reason.ability,.heal-preview').forEach(e=>e.remove());
  if(!mode){
   // Hovering an enemy shows every square it currently hits.
-  const view=game.view('w'),p=s&&view.get(s);
-  if(p&&p.color!=='w')for(const t of allSquares)if(view.attacks(s,t))board.querySelector('[data-square="'+t+'"]')?.classList.add('threat');
+  const view=game.view(playerColor),p=s&&view.get(s);
+  if(p&&p.color!==playerColor)for(const t of allSquares)if(view.attacks(s,t))board.querySelector('[data-square="'+t+'"]')?.classList.add('threat');
   return;
  }
  if(!selected)return;
  const list=targets();
  aim=list.find(m=>m.to===s)||(aim&&list.find(m=>m.to===aim.to))||list[0];
  if(!aim)return;
- const impact=game.view('w').impact(aim),id=idOf(mode);
- for(const cell of impact.area){const b=board.querySelector('[data-square="'+cell+'"]');b?.classList.add('zone');if(game.visible(cell,'w')?.color==='w'&&impact.damage.some(d=>d.square===cell))b?.classList.add('friendly-risk');}
+ const impact=game.view(playerColor).impact(aim),id=idOf(mode);
+ for(const cell of impact.area){const b=board.querySelector('[data-square="'+cell+'"]');b?.classList.add('zone');if(game.visible(cell,playerColor)?.color===playerColor&&impact.damage.some(d=>d.square===cell))b?.classList.add('friendly-risk');}
  const combinedDamage=new Map();for(const hit of impact.damage)combinedDamage.set(hit.square,(combinedDamage.get(hit.square)||0)+hit.amount);
- for(const [square,amount] of combinedDamage){const b=board.querySelector('[data-square="'+square+'"]'),victim=game.visible(square,'w'),label=document.createElement('span');const lethal=victim&&(victim.hp??maxOf(victim))<=amount;label.className='damage-preview ability'+(lethal?' lethal':'');label.textContent=(lethal?'☠ ':'')+'−'+amount;b?.append(label);const reasons=impact.damage.find(d=>d.square===square)?.reasons;if(reasons?.length){const note=document.createElement('span');note.className='damage-reason ability';note.textContent=reasons.join(' · ');b?.append(note);}}
+ for(const [square,amount] of combinedDamage){const b=board.querySelector('[data-square="'+square+'"]'),victim=game.visible(square,playerColor),label=document.createElement('span');const lethal=victim&&(victim.hp??maxOf(victim))<=amount;label.className='damage-preview ability'+(lethal?' lethal':'');label.textContent=(lethal?'☠ ':'')+'−'+amount;b?.append(label);const reasons=impact.damage.find(d=>d.square===square)?.reasons;if(reasons?.length){const note=document.createElement('span');note.className='damage-reason ability';note.textContent=reasons.join(' · ');b?.append(note);}}
  for(const heal of impact.heals){const b=board.querySelector('[data-square="'+heal.square+'"]'),label=document.createElement('span');label.className='heal-preview';label.textContent='+'+heal.amount;b?.append(label);}
  const points=id==='svarog'?[aim.from,...aim.area,aim.from]:id==='gallop'?[aim.from,...impact.area]:id==='quiet'&&aim.mode==='snipe'?[aim.from,...aim.area]:id==='train'?[aim.from,...impact.area]:id==='swap'?[aim.from,aim.to]:null;
  if(points)lines(points,true);
@@ -339,19 +348,19 @@ function openChoice(){
   const options=[...new Set(game.legalSpecials(selected).map(m=>m.revive))];
   if(!options.length)return;
   $('reviveChoices').replaceChildren();
-  for(const type of options){const b=document.createElement('button');b.textContent=names[type]+' · '+game.cost({power:'k',revive:type},'w');b.addEventListener('click',()=>{revive=type;$('resurrection').close();render();});$('reviveChoices').append(b);}
+  for(const type of options){const b=document.createElement('button');b.textContent=names[type]+' · '+game.cost({power:'k',revive:type},playerColor);b.addEventListener('click',()=>{revive=type;$('resurrection').close();render();});$('reviveChoices').append(b);}
   $('resurrection').showModal();
  }
 }
 function chooseCard(type){
- if(busy||game.side!=='w'||game.isOver()||game.pending)return;
+ if(!myTurn()||game.pending)return;
  if(mode===type){clear();render();return;}
  clear();mode=type;const sources=[...new Set(game.legalSpecials().filter(m=>m.power===type).map(m=>m.from))];
  if(sources.length===1)selected=sources[0];
  render();if(selected&&needsChoice(mode))openChoice();
 }
 function click(s){
- if(busy||game.side!=='w'||game.isOver())return;
+ if(!myTurn())return;
  error();
  if(game.pending?.kind==='stealth')selected=game.pending.square;
  if(mode){
@@ -364,9 +373,13 @@ function click(s){
  const options=selected?game.legal(selected).filter(m=>m.to===s):[];
  if(options.length){if(options[0].promotion){pending=options;$('promotion').showModal();}else void play(options[0],true);return;}
  if(game.pending?.kind==='stealth')return;
- selected=game.get(s)?.color==='w'&&s!==selected?s:null;render();board.querySelector('[data-square="'+s+'"]')?.focus({preventScroll:true});
+ selected=game.get(s)?.color===playerColor&&s!==selected?s:null;render();board.querySelector('[data-square="'+s+'"]')?.focus({preventScroll:true});
 }
-function coord(s){return {x:files.indexOf(s[0])*effects.clientWidth/8,y:(8-+s[1])*effects.clientHeight/8};}
+function boardPoint(square){
+ const x=files.indexOf(square[0]),y=8-Number(square[1]);
+ return playerColor==='w'?[x,y]:[7-x,7-y];
+}
+function coord(s){const [x,y]=boardPoint(s);return {x:x*effects.clientWidth/8,y:y*effects.clientHeight/8};}
 function ghost(s,p){
  const size=effects.clientWidth/8,c=coord(s),el=document.createElement('div');el.className='ghost-wrap';Object.assign(el.style,{left:c.x+'px',top:c.y+'px',width:size+'px',height:size+'px'});el.append(token(p));effects.append(el);return el;
 }
@@ -384,17 +397,17 @@ function floatText(s,text,cls){
 }
 // Floating number over a struck piece; the piece shakes, and fades if the blow is lethal.
 function strike(s,amount,force=false,cls=''){
- const victim=game.get(s);if(!victim||(!force&&!game.visible(s,'w')))return;
+ const victim=game.get(s);if(!victim||(!force&&!game.visible(s,playerColor)))return;
  const lethal=(victim.hp??maxOf(victim))<=amount;floatText(s,'−'+amount,(lethal?'lethal ':'')+cls);
  const piece=victim.giant?$('giantBody'):board.querySelector('[data-square="'+s+'"] .piece');
  if(piece)void animate(piece,lethal?[{opacity:1,transform:'scale(1)'},{opacity:1,transform:'scale(1.12) rotate(-6deg)',offset:.3},{opacity:0,transform:'scale(.5) rotate(12deg)'}]:[{transform:'translateX(0)'},{transform:'translateX(-7%)'},{transform:'translateX(6%)'},{transform:'translateX(-4%)'},{transform:'translateX(0)'}],{duration:lethal?420:300});
 }
-function showBurn(list){const lit=game.litSquares('w');for(const {square,amount} of list||[])if(lit.has(square)){floatText(square,'−'+amount,'burn');void ring(square,'#ff7a1a');}}
+function showBurn(list){const lit=game.litSquares(playerColor);for(const {square,amount} of list||[])if(lit.has(square)){floatText(square,'−'+amount,'burn');void ring(square,'#ff7a1a');}}
 function showAftermath(result){
  showBurn(result.burn);
  if(result.hunterShot){
   const shot=result.hunterShot;
-  for(const hit of shot.damage||[])if(game.visible(hit.square,'w')||hit.square===shot.from||(shot.arrows||[{path:shot.path}]).some(a=>a.path.includes(hit.square)))floatText(hit.square,'−'+hit.amount,'hunter-shot-damage');
+  for(const hit of shot.damage||[])if(game.visible(hit.square,playerColor)||hit.square===shot.from||(shot.arrows||[{path:shot.path}]).some(a=>a.path.includes(hit.square)))floatText(hit.square,'−'+hit.amount,'hunter-shot-damage');
   if(!matchMedia('(prefers-reduced-motion: reduce)').matches){
    const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('viewBox','0 0 800 800');svg.classList.add('hunter-shot-flash');
    const point=s=>[(files.indexOf(s[0])+.5)*100,(8-Number(s[1])+.5)*100],source=point(shot.from);
@@ -405,7 +418,7 @@ function showAftermath(result){
  if(result.hunterAmbush)floatText(result.hunterAmbush.square,'Засада!','ritual-broken');
  if(result.bossInterrupted){const square=allSquares.find(s=>game.get(s)?.type==='k'&&game.get(s)?.color==='b')||result.to;floatText(square,'Ритуал сорван','ritual-broken');if(!matchMedia('(prefers-reduced-motion: reduce)').matches)void ring(square,'#b8e7d3');}
 }
-function concealedMove(move){return !move.hunter&&!move.bossAction&&(!game.visible(move.from,'w')||(game.fogEnabled()&&!game.litSquares('w').has(move.to)));}
+function concealedMove(move){return !move.hunter&&!move.bossAction&&(!game.visible(move.from,playerColor)||(game.fogEnabled()&&!game.litSquares(playerColor).has(move.to)));}
 async function giantEffect(move,impact){
  const body=$('giantBody'),title=$('announcement');title.textContent=move.bossAction==='giantChargePrepare'?'Готовит рывок':move.bossAction==='giantStep'?'Шаг великана':move.bossAction==='giantWindup'?'Замах':giantPattern(move.pattern);title.classList.add('show');
  try{
@@ -459,7 +472,7 @@ async function hunterEffect(move,p,impact){
 }
 async function effect(move){
  effects.replaceChildren();effects.classList.remove('preview');
- const p=game.get(move.from),visible=game.visible(move.from,'w'),impact=game.impact(move),id=move.power?game.idOf(move):null;
+ const p=game.get(move.from),visible=game.visible(move.from,playerColor),impact=game.impact(move),id=move.power?game.idOf(move):null;
  if(move.bossAction){if(move.bossKind==='giant')await giantEffect(move,impact);else await bossEffect(move,impact);return;}
  if(move.bow&&visible){if(!matchMedia('(prefers-reduced-motion: reduce)').matches){const ray=lines([move.from,move.to]);await animate(ray,[{opacity:0},{opacity:1,offset:.3},{opacity:0}],{duration:360});}for(const d of impact.damage)strike(d.square,d.amount);effects.replaceChildren();return;}
  if(move.hunter){
@@ -467,16 +480,16 @@ async function effect(move){
   if(!matchMedia('(prefers-reduced-motion: reduce)').matches)await hunterEffect(move,p,impact);return;
  }
  // Hidden enemy actions may show consequences on visible pieces, never their source/path.
- if(p?.color==='b'&&concealedMove(move)){
-  for(const d of impact.damage)if(game.visible(d.square,'w')){strike(d.square,d.amount);void ring(d.square);}
-  for(const h of impact.heals)if(game.visible(h.square,'w'))floatText(h.square,'+'+h.amount,'heal');
+ if(p?.color===opponentColor&&concealedMove(move)){
+  for(const d of impact.damage)if(game.visible(d.square,playerColor)){strike(d.square,d.amount);void ring(d.square);}
+  for(const h of impact.heals)if(game.visible(h.square,playerColor))floatText(h.square,'+'+h.amount,'heal');
   if(visible){const el=board.querySelector('[data-square="'+move.from+'"] .piece');if(el)await animate(el,[{opacity:1},{opacity:0}],{duration:180});}
   return;
  }
  const backs=impact.damage.filter(d=>d.counter||d.reflected||d.self||d.recoil),back=backs.length?{amount:backs.reduce((sum,d)=>sum+d.amount,0)}:null;
  const dmg=new Map(impact.damage.filter(d=>!d.counter&&!d.reflected&&!d.self&&!d.recoil).map(d=>[d.square,d.amount]));
  const animatedHits=new Set();
- const hit=(s,color)=>{if(!game.visible(s,'w'))return Promise.resolve();const damageSquare=game.get(s)?.giant?game.get(s).giantAnchor:s;if(dmg.has(damageSquare)&&!animatedHits.has(damageSquare)){strike(damageSquare,dmg.get(damageSquare));animatedHits.add(damageSquare);}return ring(s,color);};
+ const hit=(s,color)=>{if(!game.visible(s,playerColor))return Promise.resolve();const damageSquare=game.get(s)?.giant?game.get(s).giantAnchor:s;if(dmg.has(damageSquare)&&!animatedHits.has(damageSquare)){strike(damageSquare,dmg.get(damageSquare));animatedHits.add(damageSquare);}return ring(s,color);};
  const healAll=()=>Promise.all(impact.heals.map(h=>{floatText(h.square,'+'+h.amount,'heal');return ring(h.square,'#7fe08a');}));
  const recoil=async()=>{
   if(!back)return;
@@ -558,15 +571,183 @@ function log(result,concealed=false){
  last=concealed||result.stay||result.bossAction||['aim','relocate','wait'].includes(result.hunter)?null:result;
 }
 async function play(action,human){
- if(busy)return;busy=true;
+ if(busy||(human&&!myTurn()))return;
+ const session=room;
+ if(human&&session&&!session.host){
+  session.awaiting=session.net.send({type:'move',index:game.actions.length,action});
+  if(!session.awaiting)error('Не удалось отправить ход. Подключись снова.');
+  render();
+  return;
+ }
+ busy=true;
  $('retry').hidden=true;
- // Draw the committed targeting state while blocking further actions.
  render();
- try{await effect(action);const result=game.apply(action);log(result,false);saved();clear();showAftermath(result);}
- catch(e){error(e.message);}
+ try{
+  const concealed=Boolean(session)&&game.side!==playerColor&&concealedMove(action);
+  await effect(action);
+  const result=game.apply(action);
+  if(session?.host)session.net.send({type:'commit',index:game.actions.length-1,action:game.actions.at(-1)});
+  log(result,concealed);saved();clear();showAftermath(result);
+ }catch(e){error(e.message);}
  finally{busy=false;render();}
- if(human&&game.side==='b'&&!game.isOver())void botTurn();
+ if(!session&&human&&game.side==='b'&&!game.isOver())void botTurn();
 }
+
+function myTurn(){
+ return !busy&&!game.isOver()&&game.side===playerColor&&(!room||room.ready&&!room.awaiting);
+}
+
+function renderRoom(){
+ $('roomCreate').disabled=busy||Boolean(room);
+ $('roomPanel').hidden=!room;
+ if(!room)return;
+ $('roomStatus').textContent=room.text;
+ $('roomInviteRow').hidden=!room.host||!room.published;
+ $('roomRetry').hidden=room.host||room.status!=='lost';
+ $('roomLeave').disabled=busy;
+}
+
+function roomStatus(session,status,text){
+ if(room!==session||(session.status==='error'&&status==='lost'))return;
+ session.status=status;
+ session.text=text;
+ session.ready=status==='ready';
+ if(status==='waiting')session.published=true;
+ if(!session.ready)session.awaiting=false;
+ render();
+}
+
+function freshDuel(){
+ const deck=defaultLoadout();
+ return new Battle({w:deck,b:deck});
+}
+
+function legalRoomAction(action){
+ if(!action||typeof action!=='object'||!allSquares.includes(action.from)||!allSquares.includes(action.to))return null;
+ const options=action.power?game.legalSpecials(action.from):game.legal(action.from);
+ return options.find(move=>move.to===action.to&&move.power===action.power
+  &&(move.alt||0)===(action.alt||0)&&Boolean(move.stay)===Boolean(action.stay)
+  &&move.promotion===action.promotion&&move.revive===action.revive&&move.mode===action.mode);
+}
+
+function sendRoomState(session){
+ session.net.send({type:'state',actions:game.actions});
+}
+
+async function receiveRoomMessage(session,data){
+ if(room!==session||!data||typeof data!=='object')return;
+ if(session.host){
+  if(data.type==='sync'){
+   sendRoomState(session);
+  }else if(data.type==='move'){
+   const action=session.ready&&!busy&&game.side==='b'&&data.index===game.actions.length&&legalRoomAction(data.action);
+   if(action)await play(action,false);
+   else{
+    session.net.send({type:'rejected'});
+    sendRoomState(session);
+   }
+  }
+  return;
+ }
+ if(data.type==='refused'){
+  roomStatus(session,'error',data.reason==='Место уже занято.'?data.reason:'Обновите страницу игры.');
+  return;
+ }
+ if(data.type==='rejected'){
+  session.awaiting=false;
+  error('Ход не принят. Проверяем состояние партии.');
+  render();
+  return;
+ }
+ if(data.type==='state'){
+  if(!Array.isArray(data.actions)||data.actions.length>1600)throw new Error('История партии повреждена.');
+  const next=freshDuel(),nextEvents=[];
+  for(const action of data.actions){
+   const concealed=next.side!==playerColor&&!next.visible(action.from,playerColor);
+   const result=next.apply(action);
+   nextEvents.push({result,concealed});
+  }
+  game=next;events=[];last=null;
+  for(const {result,concealed} of nextEvents)log(result,concealed);
+  session.awaiting=false;clear();error();
+  roomStatus(session,'ready','Друг подключён. Ты играешь чёрными.');
+  return;
+ }
+ if(data.type==='commit'){
+  const action=data.index===game.actions.length&&legalRoomAction(data.action);
+  if(!action){
+   roomStatus(session,'connecting','Восстанавливаем позицию…');
+   session.net.send({type:'sync'});
+   return;
+  }
+  session.awaiting=false;
+  await play(action,false);
+ }
+}
+
+function guestRoomToken(id){
+ const key='arena-room-guest-'+id;
+ try{
+  const token=sessionStorage.getItem(key)||crypto.randomUUID();
+  sessionStorage.setItem(key,token);
+  return token;
+ }catch{return crypto.randomUUID();}
+}
+
+async function enterRoom(id,host){
+ if(room||busy)return;
+ const session={id,host,ready:false,awaiting:false,published:false,status:'connecting',text:'Подключаемся к сервису комнат…',inbox:Promise.resolve()};
+ solo={game,rulesVersion,events,last,resultDismissed,botRetryBlocked};
+ room=session;
+ playerColor=host?'w':'b';opponentColor=host?'b':'w';
+ game=freshDuel();rulesVersion=currentRules;events=[];last=null;resultDismissed=false;
+ clear();error();buildCards();render();
+ const link=new URL(location.href);
+ link.hash=new URLSearchParams({room:id}).toString();
+ $('roomInvite').value=link.href;
+ $('roomCopy').textContent='Копировать';
+ try{
+  const net=await openRoom({
+   id,host,token:host?null:guestRoomToken(id),version:currentRules,
+   status:(state,text)=>roomStatus(session,state,text),
+   joined:()=>{
+    if(!host||room!==session)return;
+    sendRoomState(session);
+    roomStatus(session,'ready','Друг подключён. Ты играешь белыми.');
+   },
+   message:data=>{
+    session.inbox=session.inbox.then(()=>receiveRoomMessage(session,data)).catch(()=>{
+     roomStatus(session,'error','Не удалось синхронизировать партию. Открой комнату заново.');
+    });
+   },
+  });
+  if(room===session)session.net=net;
+  else net.close();
+ }catch{roomStatus(session,'error','Не удалось загрузить сетевую игру. Попробуй открыть комнату заново.');}
+}
+
+function leaveRoom(){
+ if(!room||busy)return;
+ const session=room;
+ room=null;session.net?.close();
+ if(roomFromHash(location.hash))history.replaceState(null,'',location.pathname+location.search);
+ playerColor='w';opponentColor='b';
+ ({game,rulesVersion,events,last,resultDismissed,botRetryBlocked}=solo);
+ solo=null;clear();error();buildCards();render();
+ if(game.side==='b'&&!game.isOver())void botTurn();
+}
+
+$('roomCreate').onclick=()=>void enterRoom('arena-'+crypto.randomUUID(),true);
+$('roomLeave').onclick=leaveRoom;
+$('roomRetry').onclick=()=>room?.net?.retry();
+$('roomCopy').onclick=async()=>{
+ const field=$('roomInvite');
+ try{
+  await navigator.clipboard.writeText(field.value);
+  $('roomCopy').textContent='Скопировано';
+ }catch{field.focus();field.select();}
+};
+
 let battleWorker;
 function requestBotTurn(state) {
   return new Promise((resolve, reject) => {
@@ -598,7 +779,7 @@ function requestBotTurn(state) {
 }
 
 async function botTurn(){
- if(busy||game.side!=='b'||game.isOver())return;
+ if(room||busy||game.side!=='b'||game.isOver())return;
  busy=true;botRetryBlocked=false;clear();error();render();let failed=false,applying=false;
  try{
   const data=await requestBotTurn({rulesVersion,actions:game.actions,loadout:game.loadout,boss:game.boss,difficulty});
@@ -665,13 +846,13 @@ $('resurrection').addEventListener('cancel',()=>{clear();render();});
 $('promotion').addEventListener('cancel',()=>{pending=null;render();});
 for(const b of $('promotion').querySelectorAll('button'))b.onclick=()=>{const action=pending?.find(m=>m.promotion===b.dataset.promotion);$('promotion').close();pending=null;if(action)void play(action,true);};
 $('retry').onclick=()=>void botTurn();
-$('newGame').onclick=()=>{if(!busy)openDraft();};
-$('resultNew').onclick=()=>{if(!busy)openDraft();};
+$('newGame').onclick=()=>{if(!busy&&!room)openDraft();};
+$('resultNew').onclick=()=>{if(!busy&&!room)openDraft();};
 $('resultInspect').onclick=()=>{resultDismissed=true;render();$('resultReturn').focus();};
 $('resultReturn').onclick=()=>{resultDismissed=false;render();$('resultInspect').focus();};
 $('draftCancel').onclick=()=>$('draft').close();
 // Undo back to the start of your previous turn, skipping the bot's reply and any free actions.
-$('undo').onclick=()=>{if(busy||!game.actions.length)return;while(game.actions.length){game.undo();events.pop();if(game.side==='w'&&!game.pending)break;}last=null;clear();error();saved();render();};
+$('undo').onclick=()=>{if(room||busy||!game.actions.length)return;while(game.actions.length){game.undo();events.pop();if(game.side===playerColor&&!game.pending)break;}last=null;clear();error();saved();render();};
 board.addEventListener('pointerleave',()=>preview());
 $('themeToggle').onclick=()=>{const i=themes.findIndex(t=>t[0]===document.documentElement.dataset.theme);applyTheme(themes[(i+1)%themes.length][0]);};
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!busy){clear();render();}});
@@ -680,8 +861,15 @@ applyTheme(document.documentElement.dataset.theme);
 try{
  if(!localStorage.getItem(storageKey))for(const [version,Engine] of [[13,BattleV13],[12,BattleV12],[11,BattleV11],[10,BattleV10],[9,BattleV9],[8,BattleV8],[7,BattleV7],[6,BattleV6]]){if(localStorage.getItem('arena-game-v'+version)){rulesVersion=version;storageKey='arena-game-v'+version;game=new Engine();break;}}
  const state=JSON.parse(localStorage.getItem(storageKey)||'null');
- if(state){if(!Array.isArray(state.actions)||state.actions.length>1600)throw new Error();difficulty=cleanDifficulty(state.difficulty);game.reset({...state.loadout,boss:state.boss,difficulty});for(const a of state.actions){const concealed=game.side!=='w'&&concealedMove(a);log(game.apply(a),concealed);}}
+ if(state){if(!Array.isArray(state.actions)||state.actions.length>1600)throw new Error();difficulty=cleanDifficulty(state.difficulty);game.reset({...state.loadout,boss:state.boss,difficulty});for(const a of state.actions){const concealed=game.side!==playerColor&&concealedMove(a);log(game.apply(a),concealed);}}
  else {difficulty=cleanDifficulty(draft.difficulty);game.reset({w:draft.deck,b:randomLoadout(),boss:draft.boss,difficulty});}
 }catch{difficulty=cleanDifficulty(draft.difficulty);rulesVersion=currentRules;storageKey='arena-game-v'+currentRules;game=new Battle({w:draft.deck,b:randomLoadout(),boss:draft.boss,difficulty});events=[];last=null;error('Не удалось прочитать сохранение. Оно оставлено в браузере; открыта новая партия.');}
 buildCards();render();
-if(game.side==='b'&&!game.isOver())void botTurn();
+const invitedRoom=roomFromHash(location.hash);
+if(invitedRoom)void enterRoom(invitedRoom,false);
+else if(game.side==='b'&&!game.isOver())void botTurn();
+
+window.addEventListener('hashchange', () => {
+ const invited=roomFromHash(location.hash);
+ if(invited&&invited!==room?.id)location.reload();
+});

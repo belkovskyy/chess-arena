@@ -14,7 +14,7 @@ class Element{
  querySelector(selector){return this.querySelectorAll(selector)[0]||null;}
 }
 const $=id=>{if(!nodes.has(id))nodes.set(id,new Element());return nodes.get(id);};
-const context={...rules,currentRules:14,rulesVersion:14,difficulty:'hard',$,document:{documentElement:new Element('html'),createElement:tag=>new Element(tag),createElementNS:(_ns,tag)=>new Element(tag)},game:new rules.Battle(),board:$('board'),names:{p:'Пешка',n:'Конь',b:'Слон',r:'Ладья',q:'Ферзь',k:'Король'},busy:false,selected:null,mode:null,aim:null,revive:null,last:null,events:[],cardButtons:{},botRetryBlocked:false,targetSquares:()=>[],attackPreview:()=>new Map(),preview:()=>{},renderResult:()=>{},click:()=>{}};
+const context={...rules,currentRules:14,rulesVersion:14,room:null,playerColor:'w',opponentColor:'b',myTurn:()=>true,renderRoom:()=>{},difficulty:'hard',$,document:{documentElement:new Element('html'),createElement:tag=>new Element(tag),createElementNS:(_ns,tag)=>new Element(tag)},game:new rules.Battle(),board:$('board'),names:{p:'Пешка',n:'Конь',b:'Слон',r:'Ладья',q:'Ферзь',k:'Король'},busy:false,selected:null,mode:null,aim:null,revive:null,last:null,events:[],cardButtons:{},botRetryBlocked:false,targetSquares:()=>[],attackPreview:()=>new Map(),preview:()=>{},renderResult:()=>{},click:()=>{}};
 vm.createContext(context);
 const between=(start,end)=>source.slice(source.indexOf(start),source.indexOf(end));
 vm.runInContext(between('function image(','const themes=')+between('function kingHp(','function targets(')+between('function renderHunterIntel(','function lines('),context);

@@ -10,6 +10,7 @@
   <details class="settings"><summary>История</summary><div class="settings-content"><p class="foe-title">Способности соперника</p><p id="foeLoadout" class="foe-loadout"></p><ol id="history" class="history"></ol></div></details>
   <button id="rulesOpen" class="quiet">Правила</button>
   <button id="undo" class="quiet" aria-label="Отменить твой ход и ответ соперника">↶</button>
+  <button id="roomCreate" class="quiet">Играть с другом</button>
   <button id="newGame" class="new">Новая партия</button>
  </div>
 </header>
@@ -45,6 +46,17 @@
    <div class="who"><strong id="botName">Соперник</strong><span><b id="botEnergy">20</b> энергии</span></div>
    <div id="botLife" class="king-hp" title="HP чёрного короля">12</div>
   </div>
+  <section id="roomPanel" class="room-panel" aria-label="Сетевая комната" hidden>
+   <p id="roomStatus" role="status"></p>
+   <div id="roomInviteRow" class="room-invite" hidden>
+    <input id="roomInvite" type="url" aria-label="Ссылка для друга" readonly>
+    <button id="roomCopy" class="quiet">Копировать</button>
+   </div>
+   <div class="room-actions">
+    <button id="roomRetry" class="quiet" hidden>Подключиться снова</button>
+    <button id="roomLeave" class="quiet">Выйти из комнаты</button>
+   </div>
+  </section>
   <div id="turn" class="turn"><span id="status" aria-live="polite"></span><span id="turnCount"></span></div>
   <button id="resultReturn" class="quiet result-return" hidden>Показать результат</button>
   <p id="bossInfo" class="hunter-info" role="status" hidden></p><section class="hand" aria-label="Способности фигур">
@@ -55,7 +67,7 @@
   </section>
   <div class="hero human">
    <div class="portrait"><img src="./pieces/wk.svg" alt=""></div>
-   <div class="who"><strong>Ты</strong><span>белые</span></div>
+   <div class="who"><strong>Ты</strong><span id="playerSide">белые</span></div>
    <div id="humanLife" class="king-hp" title="HP твоего короля">12</div>
    <div class="energy-row">
     <div class="energy-label"><span>Энергия · <i id="energyIncome">+8 за ход</i></span><span><b id="energyValue">20</b> / 60</span></div>
