@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+ <title>Железный король — шахматная крепость</title>
+ <g stroke="#e5e8e5" stroke-width="1.7" stroke-linejoin="round">
+  <path fill="#151c25" stroke="#11161d" stroke-width="4" d="M31 3h2v7h6v3h-6v5h15v11l-5 6 3 17 7 5v4H11v-4l7-5 3-17-5-6V18h15v-5h-6v-3h6z"/>
+  <path fill="#303b48" d="M17 18h7v7h5v-7h6v7h5v-7h7v10l-5 6H22l-5-6z"/>
+  <path fill="#151c25" d="M23 34h18l4 18H19z"/>
+  <path fill="#53616f" d="M19 52h26l7 5H12z"/>
+  <path fill="#222c38" d="M12 57h40v4H12z"/>
+  <path d="M32 4v14m-6-7h12" stroke="#e5e8e5" stroke-width="2.5" stroke-linecap="round"/>
+  <path fill="#6f242b" d="M26 37h12v7l-6 5-6-5z"/>
+  <path d="M32 39v7m-3-4h6" stroke="#c9cfd4" stroke-width="1.2"/>
+ </g>
+</svg>

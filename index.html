@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="ru" data-theme="lacquer"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#0b0605"><title>Шахматы · Арена</title>
+<script>try{const t=localStorage.getItem('arena-theme');if(t)document.documentElement.dataset.theme=t;}catch{}</script>
+<link rel="stylesheet" href="/style.css"></head><body>
+<header class="top">
+ <span class="brand"><span class="brand-star" aria-hidden="true"></span><span>Арена</span></span>
+ <div class="toolbar">
+  <span id="rulesVersionLabel" class="rules-version"></span>
+  <button id="themeToggle" class="quiet" title="Сменить оформление">Тема</button>
+  <details class="settings"><summary>История</summary><div class="settings-content"><p class="foe-title">Способности соперника</p><p id="foeLoadout" class="foe-loadout"></p><ol id="history" class="history"></ol></div></details>
+  <button id="rulesOpen" class="quiet">Правила</button>
+  <button id="undo" class="quiet" aria-label="Отменить твой ход и ответ соперника">↶</button>
+  <button id="newGame" class="new">Новая партия</button>
+ </div>
+</header>
+<main class="scene">
+ <section class="table" aria-label="Поле боя">
+  <div id="burnNotice" class="burn-notice" role="status" hidden><strong id="burnHeadline"></strong><span id="burnDetails"></span></div>
+  <div id="hunterIntent" class="hunter-intent" role="status" hidden><strong id="hunterIntentTitle"></strong><span id="hunterIntentText"></span></div>
+  <div id="giantIntent" class="hunter-intent giant-intent" role="status" hidden><strong id="giantIntentTitle"></strong><span id="giantIntentText"></span></div>
+  <div id="retinueIntent" class="hunter-intent retinue-intent" role="status" hidden><strong id="retinueIntentTitle"></strong><span id="retinueIntentText"></span><span id="supportMarks" class="support-marks"></span></div>
+  <div class="frame">
+   <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+   <div class="board-stage">
+    <div id="board" class="board" role="grid" aria-label="Шахматная арена"></div>
+    <div id="giantLayer" class="giant-layer" aria-hidden="true"></div>
+    <div id="hunterIntelLayer" class="hunter-intel-layer" aria-hidden="true"></div>
+    <div id="hunterShotFx" class="hunter-shot-fx" aria-hidden="true"></div>
+    <div id="effects" class="effects" aria-hidden="true"></div>
+    <div id="floats" class="floats" aria-hidden="true"></div>
+    <div id="announcement" class="announcement" aria-hidden="true"></div>
+    <section id="gameResult" class="result-overlay" aria-labelledby="resultTitle" hidden>
+     <div class="result-panel">
+      <div class="result-sigil" aria-hidden="true"><img src="/pieces/wk.svg" alt=""><span>½</span></div>
+      <h2 id="resultTitle" aria-live="polite"></h2><p id="resultText"></p>
+      <div class="result-actions"><button id="resultNew" class="new">Новая партия</button><button id="resultInspect" class="quiet">Посмотреть поле</button></div>
+     </div>
+    </section>
+   </div>
+  </div>
+ </section>
+ <aside class="side">
+  <div id="opponentPanel" class="hero opponent">
+   <div class="portrait"><img src="/pieces/bk.svg" alt=""></div>
+   <div class="who"><strong id="botName">Соперник</strong><span><b id="botEnergy">20</b> энергии</span></div>
+   <div id="botLife" class="king-hp" title="HP чёрного короля">12</div>
+  </div>
+  <div id="turn" class="turn"><span id="status" aria-live="polite"></span><span id="turnCount"></span></div>
+  <button id="resultReturn" class="quiet result-return" hidden>Показать результат</button>
+  <p id="bossInfo" class="hunter-info" role="status" hidden></p><section class="hand" aria-label="Способности фигур">
+   <div id="cards" class="cards"></div>
+   <div class="hand-foot"><p id="aimHelp" class="aim-help" aria-live="polite"></p><button id="cancel" class="quiet" hidden>Отмена · Esc</button></div>
+   <div id="error" class="error" role="alert" hidden></div><button id="retry" class="retry" hidden>Повторить ход соперника ↻</button>
+   <div id="comment" class="turn-note" aria-live="polite" hidden></div>
+  </section>
+  <div class="hero human">
+   <div class="portrait"><img src="/pieces/wk.svg" alt=""></div>
+   <div class="who"><strong>Ты</strong><span>белые</span></div>
+   <div id="humanLife" class="king-hp" title="HP твоего короля">12</div>
+   <div class="energy-row">
+    <div class="energy-label"><span>Энергия · <i id="energyIncome">+8 за ход</i></span><span><b id="energyValue">20</b> / 60</span></div>
+    <div id="energyBar" class="energy-track" role="progressbar" aria-label="Твоя энергия" aria-valuemin="0" aria-valuemax="60" aria-valuenow="20"><i></i></div>
+   </div>
+  </div>
+ </aside>
+</main>
+<dialog id="rules"><button class="dialog-close quiet" id="rulesClose" aria-label="Закрыть правила">×</button><p class="eyebrow">Правила арены</p><h2>Победа - уничтожить короля</h2>
+<p>У каждой фигуры слева внизу атака, справа внизу HP. Пешка 2/2, конь 3/4, слон 3/3, ладья 4/6, ферзь 4/5, король 2/12. Шах не запрещает ходы. Рокировка, взятие на проходе и превращение доступны.</p>
+<p><b>Удар.</b> Если цель выжила, атакующий остаётся на месте. <b>Ответный удар:</b> выжившая цель, которая сама бьёт клетку атакующего, сразу отвечает своей атакой - в подсказке «↩N».</p>
+<p><b>Стража короля.</b> Каждая своя фигура рядом с королём снимает 1 урона с удара по нему, максимум 2. Меньше 1 урона удар не наносит.</p>
+<p><b>Энергия.</b> Старт 20, потолок 60. Со второго своего хода +8 и ещё +2 за каждую свою фигуру в центре (d4, e4, d5, e5), до +4. За уничтожение врага +4, максимум +12 за ход.</p>
+<p><b>Арена горит.</b> С 25-го хода край доски загорается, дальше каждые 8 ходов - следующее кольцо. Фигура на горящей клетке теряет 1 HP в начале своего хода. Клетки, которые скоро загорятся, подсвечены.</p>
+<p><b>Колода.</b> Перед партией у каждой фигуры выбираешь способность: пешка - «Последний аргумент» или «Окоп», конь - «Звезда Сварога» или «Скачка», слон - «Снайперка» за 50 или «Инвиз» за 25, ладья - «Паровоз» или «Подмена», ферзь - «Приказ» или «Зеркало», король - «Возвращение в лобби» или «Клич». Описание каждой - на карте. Колода соперника видна в «Истории».</p>
+<p><b>Инвиз и приказ не тратят ход.</b> После инвиза слон сразу ходит невидимым (или остаётся), удар из инвиза +2. После приказа любая фигура, кроме ферзя, делает лишний ход, потом обычный.</p>
+<section id="encounterRules14"><p><b>Железный король: Строй.</b> Четыре ладьи, четыре пешки, король 20 HP. Если в момент подготовки рядом с королём стоят хотя бы две ладьи, Обвал наносит 3 урона, иначе 2. Зона 3×3 и урон фиксируются при объявлении. Разрыв строя ослабляет следующий Обвал, но не отменяет уже объявленный. На ответ даётся один ход.</p><p><b>Колдун: Печати.</b> Король 16 HP и четыре слона-печати. Ритуал наносит 3 урона по диагональному кресту; четыре печати дают радиус 3, две-три — 2, ноль-одна — 1. Гибель печати меняет только следующие ритуалы. Текущий можно сорвать уроном от фигуры по Колдуну; огонь его не срывает. Обычный слон, полученный превращением, печатью не становится.</p></section><section id="encounterRules13"><p><b>Охотник.</b> Разведотряд из 8 фигур: король e1, ферзь d1, слон c1, конь g1, ладья h1 и пешки b2, d2, f2. Все типы способностей доступны. Обзор фигур — 1, короля — 2 клетки. Укрытия: a4, h4, b6, g6, e7, c5. Видимая фигура вплотную закрывает укрытие; король закрывает его с двух клеток. Прицел → твой ответ → выстрел → полное окно для атаки → уход с новым прицелом. Основная стрела наносит 3, дополнительная по отмеченному стрелку — 3. Стража стрелы не ослабляет; Окоп снимает 1. Обе линии предупреждаются заранее, первая фигура на линии принимает стрелу, своя тоже. Прицел срывает попадание на 3+ урона одним ударом либо атака вплотную; слабый дальний урон и огонь не срывают. Укрытие вдвое уменьшает урон слона, ладьи и ферзя с расстояния 2+ клеток (округление вверх). Вплотную, от пешки, коня и засады из инвиза — полный. После первого попадания следующие удары этого хода слабее на 2. Лук отвечает на обычные атаки по прямой или диагонали до 4 клеток: 2 урона в охоте и 3 в дуэли. Способности ответного выстрела не вызывают; заслон перекрывает линию. В дуэли Охотник виден: лук стреляет с места на 3 по прямой или диагонали до 4 клеток, в том числе в ответ на твою атаку. Это обычная атака видимой фигуры, без замаха; заслон перекрывает линию, Стража не ослабляет, Окоп снимает 1. После автоматического выстрела дополнительного выстрела из лука в тот же ход нет. После ухода в укрытие остаётся обычная ближняя атака 2.</p><p><b>Великан.</b> Одно тело 2×2, 36 HP. Издалека кожа снимает 2 урона, вблизи полный. Шаг → замах → удар: два ответа. Топот — 4, Взмах — 5, Бросок — 3 до первого заслона. Во время замаха может появиться фиолетовая линия ответного Броска по помеченной фигуре; на неё есть один ответ. После основного удара следующее попадание получает +1 и игнорирует кожу, затем кожа восстанавливается. Вторая фаза начинается при 24 HP на сложном и при 18 HP на остальных уровнях: доступен Рывок на 2 клетки, новые замахи на обычном и сложном дают один ответ. Уже объявленный замах не ускоряется. Рывок наносит 2 на пути, проходит через погибших и останавливается перед выжившими. Объявленная зона не преследует ушедшие фигуры. Огонь отключён.</p><p><b>Ярость.</b> Ударившая босса фигура отмечается до объявления атаки на неё. Она становится возможной целью дополнительной стрелы или Броска. Повторный удар той же фигурой в этом или следующем полном ходе слабее на 1. Подмена, движение и превращение не сбрасывают повтор. Приказ добавляет действия внутри того же полного хода.</p></section><p class="boss-rules-old"><b>Великан.</b> Одно тело занимает квадрат 2×2 с общей полосой здоровья. Можно атаковать любую клетку тела; одна способность наносит урон телу один раз. Великан делает шаг и намечает область, затем замахивается, затем бьёт: у тебя есть два хода между выбором зоны и ударом. Топот наносит 3 урона вокруг тела, Взмах — 4 полосой. После удара он получает +1 урона от каждого твоего удара в течение одного твоего хода. Огонь в этом бою отключён.</p>
+<div class="hunter-rules-v8"><p><b>Обложить зверя.</b> У охотника шесть лёжек: a4, h4, b6, g6, e7 и d5. Кусты видны всегда. Занятая тобой лёжка, соседство с твоей видимой фигурой и огонь закрывают укрытие. Охотник перебегает между доступными лёжками в радиусе трёх клеток. Волки ходят как кони, у них 3 HP и атака 2. Туман ограничивает только твой обзор; инвиз слона скрывает его и от охотника.</p><p><b>Прицел и выстрел.</b> Красная метка показывает цель и направление, но не источник. После полного твоего хода охотник стреляет в первую фигуру на линии, затем меняет лёжку. Уведи цель, перекрой линию или нанеси урон охотнику, чтобы сорвать выстрел. После выстрела до конца твоего следующего хода остаются источник, пунктир линии и «?» на возможных лёжках. Эти метки не показывают текущее положение и HP скрытого босса.</p><p><b>Загнан и выкурен.</b> Если охотнику некуда бежать или он попал в засаду на невидимого слона, он раскрывается и получает +1 урона от каждого удара в течение одного твоего хода. Если открытых лёжек совсем не осталось, охотник постоянно виден и ходит как король. Уязвимость действует только в первый ход после выкуривания. Горящие клетки видны, но не раскрывают скрытые фигуры.</p></div>
+<p class="hunter-rules-legacy"><b>След охотника в старых партиях.</b> После успешного отхода на один твой ход остаётся след в месте нападения. Это не фигура и не текущее положение охотника; здоровья у следа нет. Горящие клетки видны сквозь туман, но огонь не раскрывает стоящие там фигуры.</p>
+<p class="hunter-rules-legacy"><b>Охотник в тумане.</b> Ты видишь клетки в радиусе двух клеток от своих фигур. Фигуры вне видимости скрыты, содержимое тёмной клетки неизвестно. Охотник видит всё поле, но инвиз твоего слона скрывает его и от босса. Охотник появляется и отмечает клетку для удара на следующий ход: уведи цель или займи отмеченную клетку отхода. Выпад наносит 3 урона; перекрытый отход оставляет охотника на свету. Между выпадами есть перезарядка.</p><p class="retinue-rules-old"><b>Железный король.</b> Готовит обвал на область 3×3 рядом с собой: 2 урона твоим фигурам на отмеченных клетках. До удара у тебя есть один ход: выведи доступные фигуры или подготовь защиту.</p><p class="retinue-rules-old"><b>Колдун.</b> Готовит ритуал на пять клеток: центр и четыре соседние диагонали. На следующем ходу босса они получат 3 урона. Уведи фигуры или нанеси любой урон самому Колдуну — это отменит ритуал.</p><p><b>Боссы.</b> Выбираются в меню перед боем. У каждого своя армия и правило; сильные удары заранее отмечаются на поле.</p>
+<p>Перезарядка у каждой способности своя, общая для фигур одного типа. Ничья: оба короля погибли одним ударом, 100 полуходов без урона, нет ходов или 400 полуходов. Наведи курсор на фигуру соперника - подсветятся клетки, которые она бьёт.</p></dialog>
+<dialog id="draft" class="draft-dialog"><p class="eyebrow">Перед боем</p><h2>Режим и колода</h2><label class="difficulty-control" for="difficulty">Сложность <select id="difficulty"><option value="easy">Лёгкий — допускает ошибки</option><option value="normal">Обычный — оценивает удары и способности</option><option value="hard">Сложный — просчитывает ответ</option></select></label><div id="draftModes" class="draft-modes"></div><p class="draft-hint">Это твои способности на партию. Хочешь другую - нажми «⇄» под картой.</p><div id="draftDeck" class="draft-deck"></div><div class="draft-actions"><button id="draftArchive" class="quiet" type="button">Архив способностей</button><span class="spacer"></span><button id="draftReset" class="quiet" type="button">Сбросить</button><button id="draftCancel" class="quiet" type="button">Отмена</button><button id="draftStart" class="new" type="button">В бой</button></div></dialog>
+<dialog id="archive" class="archive-dialog"><button class="dialog-close quiet" id="archiveClose" aria-label="Закрыть архив">×</button><p class="eyebrow">Архив способностей</p><h2>Выведенные и идеи</h2><p>Здесь то, что пока не в игре: прежние способности и задумки на будущее. В бою недоступны.</p><div id="archiveList" class="archive-list"></div></dialog>
+<dialog id="promotion"><p class="eyebrow">Превращение</p><h2>Выбери фигуру</h2><div class="promotions"><button data-promotion="q">Ферзь</button><button data-promotion="r">Ладья</button><button data-promotion="b">Слон</button><button data-promotion="n">Конь</button></div></dialog>
+<dialog id="resurrection"><p class="eyebrow">Воскрешение</p><h2>Кого вернуть?</h2><div id="reviveChoices" class="promotions"></div><button id="reviveCancel" class="quiet">Отмена</button></dialog>
+<script type="module" src="/app.js"></script></body></html>

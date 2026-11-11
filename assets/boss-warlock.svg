@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+ <title>Колдун — шахматный король печатей</title>
+ <g stroke="#eee3f8" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round">
+  <path fill="#20142e" stroke="#110d1a" stroke-width="4" d="M32 3l8 12-6 9 13-6 2 13-9 9 3 12 9 5v4H12v-4l9-5 3-12-9-9 2-13 13 6-6-9z"/>
+  <path fill="#52366b" d="M32 4l7 11-7 11-7-11z"/>
+  <path d="M32 9v12m-4-6h8" stroke="#f2ddff" stroke-width="1.8"/>
+  <path fill="#251935" d="M17 20l15 8 15-8 1 11-10 10H26L16 31z"/>
+  <path fill="#171021" d="M26 41h12l4 11H22z"/>
+  <path fill="#674780" d="M22 52h20l9 5H13z"/>
+  <path fill="#281c39" d="M13 57h38v4H13z"/>
+  <path d="M24 31l8 5 8-5M32 36v12" stroke="#b395d4"/>
+  <circle cx="9" cy="13" r="2" fill="#b395d4" stroke="none"/>
+  <path d="M52 12v6m-3-3h6M9 42v4m-2-2h4" stroke="#b395d4"/>
+ </g>
+</svg>

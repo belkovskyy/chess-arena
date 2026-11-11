@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <title>Охотник с натянутым луком</title>
+  <g stroke-linecap="round" stroke-linejoin="round">
+    <path d="M7 53c2-8 6-12 12-15C12 36 8 32 6 28 8 18 15 10 24 7c9 5 13 13 13 23l-6 7c5 4 8 9 10 16l5 5H5z" fill="#162b31" stroke="#07161a" stroke-width="4"/>
+    <path d="M7 53c2-8 6-12 12-15C12 36 8 32 6 28 8 18 15 10 24 7c9 5 13 13 13 23l-6 7c5 4 8 9 10 16l5 5H5z" stroke="#8ab6b0" stroke-width="1.8"/>
+    <path d="M13 28c3-6 7-10 12-13 5 4 7 9 8 13l-6 8-7-2z" fill="#08171d"/>
+    <path d="m23 26 6-2m-9 17 7 5 6-4M9 53h28" stroke="#8ab6b0" stroke-width="1.8"/>
+    <path d="M44 7q21 25 0 50" stroke="#07161a" stroke-width="8"/>
+    <path d="m44 7-14 25 14 25" stroke="#e2f1e9" stroke-width="1.9"/>
+    <path d="M44 7q21 25 0 50" stroke="#e4c487" stroke-width="4.5"/>
+    <path d="m55 27 1 10" stroke="#896747" stroke-width="3"/>
+    <path d="M28 32h30m-5-5 7 5-7 5" stroke="#07161a" stroke-width="5.5"/>
+    <path d="M28 32h30m-5-5 7 5-7 5" stroke="#effbf6" stroke-width="2.3"/>
+  </g>
+</svg>
